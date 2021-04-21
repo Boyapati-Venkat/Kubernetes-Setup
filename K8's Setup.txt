@@ -1,0 +1,184 @@
+Common for master and node
+--------------------------
+apt-get update -y
+apt-get install -y apt-transport-https
+
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
+
+
+cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+
+apt-get update -y
+
+#Turn off Swap space
+
+swapoff -a
+sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+#Install and enable Docker
+
+apt install docker.io -y
+systemctl restart docker
+systemctl enable docker.service
+
+
+#Install kubeadm, kubelet and kubectl
+
+apt-get install -y kubelet kubeadm kubectl kubernetes-cni
+
+#Enable and start kubelet service
+
+systemctl daemon-reload
+systemctl start kubelet
+systemctl enable kubelet.service
+
+-------- common for master and slave end------------
+
+
+-----Master--------
+
+kubeadm init
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+
+kubeadm token create --print-join-command
+
+
+
+run the output command in node by ignoring warning
+
+
+
+sudo kubeadm join 172.31.30.123:6443 --token cwa75t.pkutoyy6cd49hill \
+    --discovery-token-ca-cert-hash sha256:2377f0445581dbe4a5c90be2f1bac42622759d5eba6e8c6f60a4863c7e68a63a
+
+check version
+---------------------
+kubectl cluster-info
+kubectl version --short
+
+kubectl label nodes worker-node1 kubernetes.io/role=worker1
+
+kubectl label nodes worker-node1 tier=front-end
+kubectl label nodes worker-node2 tier=front-end
+kubectl label nodes worker-node3 tier=back-end
+
+kubectl label nodes worker-node1 name=web-server
+kubectl label nodes worker-node2 name=web-server
+kubectl label nodes worker-node3 name=data-base
+
+
+kubectl label nodes worker-node1 disk=hdd
+kubectl label nodes worker-node2 disk=hdd
+kubectl label nodes worker-node3 disk=ssd
+
+kubectl label nodes worker-node1 env=dev
+kubectl label nodes worker-node2 env=dev
+kubectl label nodes worker-node3 env=prod
+
+
+
+The pods can be spread across zones by specifying topologyKey: http://failure-domain.beta.kubernetes.io/zone under podAffinityTerm, this assumes that the nodes are already spread across different zones to prevent catastrophe arising from zonal failure, having a regional cluster is a good idea
+
+If you have multiple rules under podAffinityTerm, you can specify weights to them to tell the scheduler the importance of each rule, if you have just one rule, you can specify 100 to it.
+
+
+to remove existing node and join with new name
+-----------------------------------------------------
+
+kubectl delete node nodename - on master
+hostnamectl set-hostname <Give nodename>
+exec bash
+sudo systemctl restart kubelet
+sudo kebeadm init
+sudo kubeadm join 172.31.19.182:6443 --token os9w1s.s4vy4m1ikr3qvzls     --discovery-token-ca-cert-hash sha256:6a188eb555f52a93e265cd53c9b21a669b76daa0a7708376af8e1fa7081a59c7
+
+
+
+helm $ datadog installation in k8s
+----------------------------------
+curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
+sudo apt-get install apt-transport-https --yes
+echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+
+
+helm repo add datadog https://helm.datadoghq.com
+helm repo add stable https://charts.helm.sh/stable
+helm repo update
+
+wget https://raw.githubusercontent.com/DataDog/helm-charts/master/charts/datadog/values.yaml
+
+
+helm install myrelease -f values.yaml  --set datadog.apiKey=8b869953a8200e8aa33a5e669f7ca025 datadog/datadog --set targetSystem=linux
+
+
+
+
+
+
+
+kubectl get pods | awk '{print $7}'
+
+                      RBACK
+------------------------------------------------------
+
+
+sudo openssl genrsa -out Boyapati.key 2048
+
+sudo openssl rand -out .rnd -hex 256
+
+sudo openssl req -new -key Boyapati.key -out Boyapati.csr -subj "/CN=Boyapati/O=Developer"
+
+sudo openssl x509 -req -in Boyapati.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out Boyapati.crt -days 300
+
+sudo kubectl config --kubeconfig=Boyapati-k8s-config --embed-certs=true set-cluster kubernetes --server=https://172.31.22.73:6443 --certificate-authority=ca.crt
+
+sudo kubectl config --kubeconfig=Boyapati-k8s-config --embed-certs=true set-credentials Boyapati  --client-certificate=Boyapati.crt --client-key=Boyapati.key 
+
+
+
+sudo kubectl config --kubeconfig='Boyapati-k8s-config' set-context standard --cluster=kubernetes --user=Boyapati --namespace=default 
+
+kubectl config set-context standard --user=Boyapati --cluster=kubernetes
+
+sudo chown $(id -u):$(id -g) /etc/kubernetes/pki/Boyapati-k8s-config
+
+kubectl --kubeconfig='Boyapati-k8s-config' get pods
+
+export KUBECONFIG=/etc/kubernetes/pki/Boyapati-k8s-config
+
+
+kubectl config get-clusters
+kubectl config get-contexts
+kubectl config use-context standard
+kubectl get clusterrole --all-namespaces
+kubectl get role --all-namespaces
+kubectl get clusterrolebinding --all-namespaces
+kubectl get rolebinding --all-namespaces
+kubectl api-versions
+
+to get component status healthy
+
+Modify the following files on all master nodes:
+
+$ sudo vi /etc/kubernetes/manifests/kube-scheduler.yaml
+Clear the line (spec->containers->command) containing this phrase: - --port=0
+
+$ sudo vi /etc/kubernetes/manifests/kube-controller-manager.yaml
+Clear the line (spec->containers->command) containing this phrase: - --port=0
+
+$ sudo systemctl restart kubelet.service
+
+
+
+
+
+

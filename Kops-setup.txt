@@ -1,0 +1,42 @@
+add s3 full access
+add ec2 full access
+add vpc full access
+add iam full access as a kops role to instance
+
+
+curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
+unzip awscli-bundle.zip
+sudo ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws
+
+
+curl -Lo kops https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
+chmod +x kops
+sudo mv kops /usr/local/bin/kops
+
+curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+sudo mv kops /usr/local/bin/kubectl
+
+
+
+export NAME=venkatboyapati.k8s.local
+export KOPS_STATE_STORE=s3://boyapati-venkat-bucket
+
+ssh-keygen
+
+
+kops create cluster --zones ap-south-1a --networking weave --master-size t2.medium --master-count 1 --node-size t2.micro --node-count 2 $Env:NAME --dns-zone=manavillage.com --dns public
+
+kops create secret --name ${NAME} sshpublickey admin -i ~/.ssh/id_rsa.pub
+
+kops update cluster $Env:NAME --yes
+
+kops delete cluster $Env:NAME --yes
+
+kops validate cluster
+
+C:\Users\u6077693/.ssh/id_rsa admin@$Env:Name
+
+
+
+aws eks update-kubeconfig --region us-east-1 --name my-k8-cluster --profile my-own-ac
